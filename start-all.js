@@ -35,11 +35,14 @@ const projects = [
 ];
 
 projects.forEach(p => {
-  // Komutları 'shell' üzerinden tek parça gönderiyoruz
-  const proc = spawn(p.command, [], {
+  const proc = spawn(p.command, {
     cwd: path.join(process.cwd(), p.cwd),
     shell: true,
     stdio: "inherit"
+  });
+
+  proc.on("error", err => {
+    console.log(`❌ ${p.name} başlatılamadı:`, err.message);
   });
 
   proc.on("close", code => {
@@ -48,5 +51,6 @@ projects.forEach(p => {
     }
   });
 });
+
 
 console.log("🚀 TranslatorApp Tüm Servisler Başlatıldı");
