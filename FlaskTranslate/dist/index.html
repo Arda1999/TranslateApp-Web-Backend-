@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/public/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <script type="module" crossorigin src="/assets/index-oIYvuZd2.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-DoiY6K1f.css">
+</head>
+<div class="container mt-7">
+  <div class="d-flex flex-column flex-md-row align-items-start">
+    <div class="p-2 fill" id="resultsContainer">
+      <div class="p-2 mb-3 mb-md-0">
+        <div class="btn-wrapper d-flex flex-column flex-md-row"> 
+        </div>
+        <div class="col-md-14 p-4 bg-light rounded-3 shadow ">
+          <div class="d-flex align-items-start gap-4">
+          <h3 style="color: rgb(20, 20, 20);">Bağlı Kullanıcılar</h3>      
+            <ul id="userList" class="list-group me-4" style="width: 250px; font-size: large;"></ul>
+            <input type="text" id="targetUserId" placeholder="Hedef Kullanıcı ID"
+              style="width: 250px; padding: 12px 15px; border: none; border-radius: 8px; outline: none;
+                font-size: 16px; background: #dadae7; color: #131212;
+                box-shadow: 0 4px 10px rgba(223, 219, 219, 0.3); transition: 0.3s ease-in-out;">
+          </div>
+        </div>
+        <div class="mb-3">
+          <label for="languageSelect" class="form-label">Language</label>
+          <select id="languageSelect" class="form-select">
+            <option value="tr-TR">Türkçe (Turkish)</option>
+            <option value="en-US">English (United States)</option>
+            <option value="fr-FR">Français (French)</option>
+            <option value="de-DE">Deutsch (German)</option>
+            <option value="es-ES">Español (Spanish)</option>
+            <option value="it-IT">Italiano (Italian)</option>
+            <option value="pt-PT">Português (Portuguese)</option>
+            <option value="ru-RU">Русский (Russian)</option>
+            <option value="ja-JP">日本語 (Japanese)</option>
+            <option value="zh-CN">简体中文 (Chinese)</option>
+            <option value="ar-SA">العربية (Arabic)</option>
+            <option value="ko-KR">한국어 (Korean)</option>
+            <option value="hi-IN">हिन्दी (Hindi)</option>
+            <!-- Diğer diller de buraya eklenebilir -->
+          </select>
+        </div>
+      </div>
+      <div class="container mt-7">
+        <div class="d-flex">
+          <div class="col-md-5 p-4 bg-light rounded-3 shadow">
+            <h3 class="text-center mb-4">
+              <i class="fas fa-headphones"></i> Karşı Tarafın Ses Mesajları
+            </h3>
+            <div class="d-flex justify-content-center">
+              <audio id="incomingAudio" controls class="w-100"></audio>
+            </div>
+            <!-- İleride gelen sesler buraya eklenebilir -->
+          </div>     
+          <!-- Sağ Alan: Kendi ses kaydımız ve ilgili butonlar -->
+          <div class="p-3 flex-fill" id="rightContainer">
+            <div class="section">
+                 <h3 class="text-center mb-4">
+              <i class="fas fa-headphones"></i> Kendi Mesajlarım
+            </h3>
+              <div class="btn-wrapper d-flex flex-column flex-md-row">
+                <button id="startBtn" class="btn btn-danger btn-start mb-2 mb-md-0 me-md-2">
+                  <span>Start Recording</span>
+                </button>
+                <button id="startBtn2" class="btn btn-danger btn-start mb-2 mb-md-0 me-md-2">
+                  <span>Start Speaking</span>
+                </button>
+                <button id="stopBtn" class="btn btn-secondary btn-stop mb-2 mb-md-0 me-md-2" disabled>Stop Recording</button>
+                <button id="clearBtn" class="btn btn-warning btn-clear mb-2 mb-md-0">Clear Text</button>
+              </div>
+              <div id="result" class="result border p-3 mb-3" style="min-height: 200px;"></div> <!-- New Turkish text area -->
+              <div id="translatedResult" class="result border p-3 mb-3" style="min-height: 200px;"></div> <!-- New translated English text area -->
+            </div>
+          </div>
+        </div>
+      </div>
+    <!--<button id="startRecordingBtn">Ses Kaydını Başlat</button>
+    <button id="stopRecordingBtn" disabled>Ses Kaydını Durdur</button>    
+    <button id="downloadBtn" style="display:none;">Ses Dosyasını İndir</button> -->
+  </div>
+</div>
+<script>
+const socket = new WebSocket('ws://localhost:8080');
+        let mediaRecorder;
+        let audioChunks = [];
+        let userId = null;
+
+        socket.onopen = () => {
+            console.log('Sunucuya bağlandım');
+        };
+
+        // Sunucudan gelen mesajı alıyoruz (Ses verisi)
+        socket.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+              // Kullanıcı ID'si sunucudan geldiğinde sakla
+              if (message.type === 'user_id') {
+                  userId = message.userId;
+                  console.log('Benim kullanıcı ID\'m: ', userId);
+              }
+              // Kullanıcı listesi güncellendiğinde
+              if (message.type === 'user_list') {
+                  const userListElement = document.getElementById('userList');
+                  userListElement.innerHTML = ''; // Listeyi temizle
+
+                  message.users.forEach(user => {
+                      const li = document.createElement('li');
+                      li.className = "list-group-item";
+
+                      // Eğer listelenen kullanıcı benim kullanıcı id'mse "Ben" olarak göster
+                      if (user === userId) {
+                          li.textContent = `${user} (Ben)`;
+                          li.style.fontWeight = 'bold';  // Kendi kullanıcı adını kalın yap
+                          li.style.color = 'green';  // Renk değiştirerek daha belirgin yap
+                      } else {
+                          li.textContent = user;
+                      }
+
+                      userListElement.appendChild(li);
+                  });
+                }
+            // Ses verisi alındığında:
+            if (message.type === 'audio') {
+                const audioData = message.audioData;
+                const audioBuffer = Uint8Array.from(atob(audioData), c => c.charCodeAt(0));
+                const audioBlob = new Blob([audioBuffer], { type: 'audio/mp3' });
+                const audioUrl = URL.createObjectURL(audioBlob);
+                
+                // Gelen sesin çalınacağı audio elementini alıp, ses verisini burada çalıyoruz
+                const incomingAudioElement = document.getElementById('incomingAudio');
+                incomingAudioElement.src = audioUrl;
+                incomingAudioElement.play(); // Otomatik olarak çal
+
+                // İndirme bağlantısını oluştur
+                const downloadButton = document.getElementById('downloadBtn');
+                downloadButton.style.display = 'block'; // İndirme butonunu görünür yap
+                downloadButton.onclick = () => {
+                    const link = document.createElement('a');
+                    link.href = audioUrl;
+                    link.download = 'audio_message.mp3'; // Dosya adını belirleyebilirsiniz
+                    link.click();
+                };
+            }
+
+            // Kullanıcı ID'si sunucudan alınıyor
+            if (message.type === 'user_id') {
+                userId = message.userId;
+                console.log('Kullanıcı ID\'si: ', userId);
+            }
+        };
+
+        // Ses kaydını başlat
+        document.getElementById('startBtn').addEventListener('click', async () => {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+
+            mediaRecorder.ondataavailable = (event) => {
+                audioChunks.push(event.data);   
+            };
+
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/mp3' });
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const audioData = reader.result.split(',')[1]; // Base64 formatında veriyi al
+                    const targetUserId = document.getElementById('targetUserId').value; // Hedef kullanıcı ID'si
+
+                    // Ses verisini WebSocket üzerinden göndermek
+                    const message = {
+                        type: 'audio',
+                        audioData: audioData,
+                        targetUserId: targetUserId
+                    };
+
+                    socket.send(JSON.stringify(message));
+                    console.log('Ses verisi gönderildi');
+                    
+                    // Ses dosyasını indirilebilir yapma
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    const downloadButton = document.getElementById('downloadBtn');
+                    downloadButton.style.display = 'block'; // İndirme butonunu görünür yap
+                    downloadButton.onclick = () => {
+                        const link = document.createElement('a');
+                        link.href = audioUrl;
+                        link.download = 'audio_message.mp3'; // Dosya adını belirleyebilirsiniz
+                        link.click();
+                    };
+                };
+                reader.readAsDataURL(audioBlob); // Ses verisini base64 formatında okuma
+            };
+
+            mediaRecorder.start();
+            document.getElementById('startRecordingBtn').disabled = true;
+            document.getElementById('stopRecordingBtn').disabled = false;
+            console.log('Ses kaydı başlatıldı');
+        });
+
+        // Ses kaydını durdur
+        document.getElementById('stopRecordingBtn').addEventListener('click', () => {
+            mediaRecorder.stop();
+            document.getElementById('startRecordingBtn').disabled = false;
+            document.getElementById('stopRecordingBtn').disabled = true;
+            console.log('Ses kaydı durduruldu');
+        });
+
+</script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/wav-encoder@1.0.0/dist/wav-encoder.min.js"></script>
+</body>
+</html>
