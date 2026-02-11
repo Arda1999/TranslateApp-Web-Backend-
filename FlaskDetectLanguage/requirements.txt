@@ -1,0 +1,5 @@
+Flask
+Flask-Cors
+speechbrain
+torchaudio
+ffmpeg-python

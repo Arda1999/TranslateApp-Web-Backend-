@@ -1,0 +1,8 @@
+{
+  "name": "translatorapp-root",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start:all": "node start-all.js"
+  }
+}

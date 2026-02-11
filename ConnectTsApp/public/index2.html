@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Sesli Mesajlaşma</title>
+</head>
+<body>
+    <h1>WebSocket Sesli Mesajlaşma</h1>
+
+    <div>
+        <label for="targetUserId">Hedef Kullanıcı ID: </label>
+        <input type="text" id="targetUserId" placeholder="Hedef Kullanıcı ID">
+    </div>
+
+    <button id="startRecordingBtn">Ses Kaydını Başlat</button>
+    <button id="stopRecordingBtn" disabled>Ses Kaydını Durdur</button>
+
+    <h3>Gelen Sesler:</h3>
+    <audio id="incomingAudio" controls></audio> <!-- Karşı taraftan gelen sesin çalınacağı alan -->
+    <button id="downloadBtn" style="display:none;">Ses Dosyasını İndir</button> <!-- İndirme butonu -->
+
+    <script>
+        const socket = new WebSocket('ws://localhost:8080');
+        let mediaRecorder;
+        let audioChunks = [];
+        let userId = null;
+
+        socket.onopen = () => {
+            console.log('Sunucuya bağlandım');
+        };
+
+        // Sunucudan gelen mesajı alıyoruz (Ses verisi)
+        socket.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+
+            // Ses verisi alındığında:
+            if (message.type === 'audio') {
+                const audioData = message.audioData;
+                const audioBuffer = Uint8Array.from(atob(audioData), c => c.charCodeAt(0));
+                const audioBlob = new Blob([audioBuffer], { type: 'audio/mp3' });
+                const audioUrl = URL.createObjectURL(audioBlob);
+                
+                // Gelen sesin çalınacağı audio elementini alıp, ses verisini burada çalıyoruz
+                const incomingAudioElement = document.getElementById('incomingAudio');
+                incomingAudioElement.src = audioUrl;
+                incomingAudioElement.play(); // Otomatik olarak çal
+
+                // İndirme bağlantısını oluştur
+                const downloadButton = document.getElementById('downloadBtn');
+                downloadButton.style.display = 'block'; // İndirme butonunu görünür yap
+                downloadButton.onclick = () => {
+                    const link = document.createElement('a');
+                    link.href = audioUrl;
+                    link.download = 'audio_message.mp3'; // Dosya adını belirleyebilirsiniz
+                    link.click();
+                };
+            }
+
+            // Kullanıcı ID'si sunucudan alınıyor
+            if (message.type === 'user_id') {
+                userId = message.userId;
+                console.log('Kullanıcı ID\'si: ', userId);
+            }
+        };
+
+        // Ses kaydını başlat
+        document.getElementById('startRecordingBtn').addEventListener('click', async () => {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+
+            mediaRecorder.ondataavailable = (event) => {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/mp3' });
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const audioData = reader.result.split(',')[1]; // Base64 formatında veriyi al
+                    const targetUserId = document.getElementById('targetUserId').value; // Hedef kullanıcı ID'si
+
+                    // Ses verisini WebSocket üzerinden göndermek
+                    const message = {
+                        type: 'audio',
+                        audioData: audioData,
+                        targetUserId: targetUserId
+                    };
+
+                    socket.send(JSON.stringify(message));
+                    console.log('Ses verisi gönderildi');
+                    
+                    // Ses dosyasını indirilebilir yapma
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    const downloadButton = document.getElementById('downloadBtn');
+                    downloadButton.style.display = 'block'; // İndirme butonunu görünür yap
+                    downloadButton.onclick = () => {
+                        const link = document.createElement('a');
+                        link.href = audioUrl;
+                        link.download = 'audio_message.mp3'; // Dosya adını belirleyebilirsiniz
+                        link.click();
+                    };
+                };
+                reader.readAsDataURL(audioBlob); // Ses verisini base64 formatında okuma
+            };
+
+            mediaRecorder.start();
+            document.getElementById('startRecordingBtn').disabled = true;
+            document.getElementById('stopRecordingBtn').disabled = false;
+            console.log('Ses kaydı başlatıldı');
+        });
+
+        // Ses kaydını durdur
+        document.getElementById('stopRecordingBtn').addEventListener('click', () => {
+            mediaRecorder.stop();
+            document.getElementById('startRecordingBtn').disabled = false;
+            document.getElementById('stopRecordingBtn').disabled = true;
+            console.log('Ses kaydı durduruldu');
+        });
+    </script>
+</body>
+</html>

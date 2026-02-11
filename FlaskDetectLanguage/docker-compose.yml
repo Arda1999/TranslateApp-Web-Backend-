@@ -1,0 +1,8 @@
+version: '3.4'
+
+services:
+  flaskdetectlanguage:
+    image: flaskdetectlanguage
+    build:
+      context: .
+      dockerfile: ./Dockerfile
