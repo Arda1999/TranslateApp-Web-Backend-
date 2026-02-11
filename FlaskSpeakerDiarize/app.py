@@ -8,7 +8,7 @@ from pyannote.audio import Pipeline
 import os
 
 HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN")
-
+#token artıkenv den geliyor
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
