@@ -30,7 +30,44 @@ let textToSpeechEnabled = true; // Seslendirmeyi kontrol eden bayrak (Start Reco
 
 const AUTO_DETECT_DURATION_MS = 4000;
 const RECOGNITION_RESTART_DELAY_MS = 500;
+// SnackBar ve Loading Bar fonksiyonları
+function showSnackbar(message) {
+  const snackbar = document.getElementById('snackbar');
+  snackbar.textContent = message;
+  snackbar.className = 'show';
+  
+  setTimeout(() => {
+    snackbar.className = snackbar.className.replace('show', '');
+  }, 3000);
+}
 
+function showLoadingBar() {
+  // Üstteki loading bar'ı göster
+  const loadingBar = document.getElementById('loadingBar');
+  if (loadingBar) {
+    loadingBar.style.display = 'block';
+  }
+  
+  // Otomatik Dil Tespiti yanındaki spinner'ı göster
+  const spinner = document.getElementById('languageDetectionSpinner');
+  if (spinner) {
+    spinner.classList.add('active');
+  }
+}
+
+function hideLoadingBar() {
+  // Üstteki loading bar'ı gizle
+  const loadingBar = document.getElementById('loadingBar');
+  if (loadingBar) {
+    loadingBar.style.display = 'none';
+  }
+  
+  // Otomatik Dil Tespiti yanındaki spinner'ı gizle
+  const spinner = document.getElementById('languageDetectionSpinner');
+  if (spinner) {
+    spinner.classList.remove('active');
+  }
+}
 
 
 
@@ -557,6 +594,9 @@ function startRecording(preferStereoMix = false) {
 
 async function detectLanguageFromAudio(audioBlob) {
   try {
+    // Loading bar göster
+    showLoadingBar();
+    
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     console.log("📤 DİL TESPİTİ API'YE GÖNDERİLİYOR");
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -572,30 +612,27 @@ async function detectLanguageFromAudio(audioBlob) {
       body: formData,
     });
 
+    // Loading bar gizle
+    hideLoadingBar();
+
     if (response.ok) {
       const data = await response.json();
-      //////////ben ekledim/////////////
       const confidence = data.confidence_score || 0;
 
       console.log("🎯 Confidence kontrol:", confidence);
 
+      // Güven skoru kontrolü
       if (confidence < 0.75) {
         console.warn("❌ Dil güven skoru düşük:", confidence);
+
+        // SnackBar göster
+        showSnackbar("Üzgünüm… tekrar deneyin veya dili manuel seçin");
 
         // Web Speech API başlatılmasın
         recognizing = false;
 
-        // Uyarı mesajı göster
-        const resultBox = document.getElementById('result');
-        if (resultBox) {
-          resultBox.innerText = "⚠️ Dil algılanamadı. Lütfen tekrar konuşur musunuz?";
-        }
-
-        alert("Dil algılanamadı (güven skoru düşük). Lütfen tekrar konuşun.");
-
         return; // BURADA DUR! Devam etmesin
       }
-///////////////////////////////////////
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       console.log("📥 API YANITINI ALDI");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -665,10 +702,14 @@ async function detectLanguageFromAudio(audioBlob) {
       }, RECOGNITION_RESTART_DELAY_MS);
       
     } else {
+      hideLoadingBar();
       console.error("Dil tespiti API Hatası:", await response.text());
+      showSnackbar("Dil tespiti başarısız. Lütfen tekrar deneyin.");
     }
   } catch (error) {
+    hideLoadingBar();
     console.error("POST isteği gönderilirken hata oluştu:", error);
+    showSnackbar("Bağlantı hatası. Lütfen tekrar deneyin.");
   }
 }
 
